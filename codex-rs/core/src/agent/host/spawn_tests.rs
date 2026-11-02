@@ -193,6 +193,7 @@ async fn same_manager_creation_retains_step_executor_and_shares_exec_policy() ->
                 fork_mode: None,
                 agent_type: None,
                 model: None,
+                provider: None,
                 reasoning_effort: None,
             },
             HostThreadSpawnReservation {

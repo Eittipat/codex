@@ -29,6 +29,34 @@ pub(crate) fn has_launch_setting(
             })
 }
 
+/// Resolve a provider and model together before creating a new thread.
+/// Invalid provider IDs are rejected before any session is started.
+pub(super) fn select_new_session_provider(
+    config: &mut Config,
+    provider_id: &str,
+    model: &str,
+) -> Result<()> {
+    let provider = config
+        .model_providers
+        .get(provider_id)
+        .cloned()
+        .ok_or_else(|| color_eyre::eyre::eyre!("Model provider {provider_id} is not configured"))?;
+    if model.trim().is_empty() {
+        color_eyre::eyre::bail!("A model must be selected");
+    }
+    if let Some(required) = config.config_layer_stack.required_model_provider()
+        && required != provider_id
+    {
+        color_eyre::eyre::bail!(
+            "Model provider {provider_id} is disallowed by configuration; required provider is {required}"
+        );
+    }
+    config.model_provider_id = provider_id.to_owned();
+    config.model_provider = provider;
+    config.model = Some(model.to_owned());
+    Ok(())
+}
+
 pub(super) fn overlay_new_session_defaults(
     config: &mut Config,
     defaults: &codex_app_server_protocol::Config,

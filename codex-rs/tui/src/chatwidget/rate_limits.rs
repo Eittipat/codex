@@ -424,6 +424,9 @@ impl ChatWidget {
     }
 
     fn lower_cost_preset(&self) -> Option<ModelPreset> {
+        if self.config.model_provider_id != "openai" {
+            return None;
+        }
         let models = self.model_catalog.try_list_models().ok()?;
         models
             .iter()

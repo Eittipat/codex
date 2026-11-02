@@ -1001,6 +1001,26 @@ impl App {
         initial_user_message: Option<crate::chatwidget::UserMessage>,
         new_thread_name: Option<String>,
     ) {
+        self.start_fresh_session_with_provider(
+            tui,
+            app_server,
+            session_start_source,
+            initial_user_message,
+            new_thread_name,
+            None,
+        )
+        .await;
+    }
+
+    pub(super) async fn start_fresh_session_with_provider(
+        &mut self,
+        tui: &mut tui::Tui,
+        app_server: &mut AppServerSession,
+        session_start_source: Option<ThreadStartSource>,
+        initial_user_message: Option<crate::chatwidget::UserMessage>,
+        new_thread_name: Option<String>,
+        selection: Option<(String, String)>,
+    ) {
         if self.reject_pending_permission_root_switch() {
             if let Some(message) = initial_user_message {
                 self.chat_widget.restore_user_message_to_composer(message);
@@ -1050,7 +1070,30 @@ impl App {
             &self.cli_kv_overrides,
             &self.harness_overrides,
         );
-        match app_server
+        if selection.is_some()
+            && app_server.thread_params_mode().settings_owner()
+                == crate::app_server_session::ThreadSettingsOwner::Server
+        {
+            self.chat_widget.add_error_message(
+                "This server controls the provider; select a provider on the server instead."
+                    .to_string(),
+            );
+            return;
+        }
+        if let Some((provider, model)) = selection.as_ref() {
+            if let Err(err) =
+                super::new_session::select_new_session_provider(&mut config, provider, model)
+            {
+                self.chat_widget
+                    .add_error_message(format!("Cannot start selected model: {err}"));
+                return;
+            }
+        }
+        let previous_provider_override = app_server.model_provider_override.clone();
+        if let Some((provider, _)) = selection.as_ref() {
+            app_server.model_provider_override = Some(provider.clone());
+        }
+        let started_thread = app_server
             .start_thread_with_session_start_source(
                 &self.local_settings,
                 &config,
@@ -1058,9 +1101,20 @@ impl App {
                 /*remote_cwd_override*/ None,
                 /*selected_profile*/ None,
             )
-            .await
-        {
+            .await;
+        app_server.model_provider_override = previous_provider_override;
+        match started_thread {
             Ok(mut started) => {
+                if let Some((provider, model)) = selection.as_ref()
+                    && (started.session.model_provider_id != *provider
+                        || started.session.model != *model)
+                {
+                    self.chat_widget.add_error_message(format!(
+                        "Server selected provider {} instead of {provider}, or did not select the requested model; chat was not switched.",
+                        started.session.model_provider_id
+                    ));
+                    return;
+                }
                 if let Some(thread_id) = self.current_displayed_thread_id()
                     && let Some(blank) = self.agents_overview.blank_sessions.get_mut(&thread_id)
                 {

@@ -68,7 +68,8 @@ impl std::fmt::Debug for ToolCall {
 
 impl ToolCall {
     pub(crate) fn direct_source(&self) -> ToolCallSource {
-        if self.tool_name.namespace.as_deref() == Some("collaboration")
+        if self.tool_name.namespace.as_deref() == Some("custom_agents")
+            || self.tool_name.namespace.as_deref() == Some("collaboration")
             && matches!(
                 self.tool_name.name.as_str(),
                 "spawn_agent" | "send_message" | "followup_task"

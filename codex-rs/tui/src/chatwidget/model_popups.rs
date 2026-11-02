@@ -80,6 +80,10 @@ impl ChatWidget {
     }
 
     pub(crate) fn open_model_popup_with_presets(&mut self, presets: Vec<ModelPreset>) {
+        if self.config.model_provider_id != "openai" {
+            self.open_all_models_popup_with_view_id(Vec::new(), MODEL_SELECTION_VIEW_ID);
+            return;
+        }
         if self.restrict_model_picker_to_luna_reserve() {
             self.open_luna_reserve_model_popup(presets, MODEL_SELECTION_VIEW_ID);
             return;
@@ -233,7 +237,7 @@ impl ChatWidget {
         presets: Vec<ModelPreset>,
         view_id: &'static str,
     ) {
-        if presets.is_empty() {
+        if presets.is_empty() && self.config.model_providers.len() <= 1 {
             self.bottom_pane.dismiss_view_by_id(view_id);
             self.add_info_message(
                 "No additional models are available right now.".to_string(),
@@ -243,7 +247,8 @@ impl ChatWidget {
         }
 
         let mut items: Vec<SelectionItem> = Vec::new();
-        let model_ids = presets.iter().map(|preset| preset.model.clone()).collect();
+        let mut model_ids: Vec<String> =
+            presets.iter().map(|preset| preset.model.clone()).collect();
         for preset in presets.into_iter() {
             let description =
                 (!preset.description.is_empty()).then_some(preset.description.to_string());
@@ -276,6 +281,19 @@ impl ChatWidget {
             });
         }
 
+        if self.config.model_providers.len() > 1 {
+            model_ids.push("other-providers".to_string());
+            items.push(SelectionItem {
+                name: "Browse configured providers".to_string(),
+                description: Some(
+                    "Fetch available models and start a new chat with the selected provider."
+                        .to_string(),
+                ),
+                actions: vec![Box::new(|tx| tx.send(AppEvent::FetchProviderModels))],
+                dismiss_on_select: true,
+                ..Default::default()
+            });
+        }
         let header = self.model_menu_header("Select Model and Effort", "");
         self.show_model_selection_view(
             model_ids,
@@ -283,6 +301,53 @@ impl ChatWidget {
                 view_id: Some(view_id),
                 items,
                 header,
+                ..SelectionViewParams::picker()
+            },
+        );
+    }
+
+    pub(crate) fn open_provider_models_popup(
+        &mut self,
+        models: Vec<crate::provider_model_discovery::ProviderModel>,
+        errors: Vec<String>,
+    ) {
+        for error in errors {
+            self.add_warning_message(format!("Model discovery: {error}"));
+        }
+        if models.is_empty() {
+            self.add_info_message("No provider models were discovered.".to_string(), None);
+            return;
+        }
+        let mut ids = Vec::new();
+        let items = models
+            .into_iter()
+            .map(|entry| {
+                ids.push(format!("{}:{}", entry.provider, entry.id));
+                let provider = entry.provider.clone();
+                let model = entry.id.clone();
+                SelectionItem {
+                    name: format!("{} · {}", entry.name, entry.provider),
+                    search_value: Some(format!("{} {} {}", entry.name, entry.provider, entry.id)),
+                    description: Some(entry.id),
+                    actions: vec![Box::new(move |tx| {
+                        tx.send(AppEvent::NewSessionWithModel {
+                            provider: provider.clone(),
+                            model: model.clone(),
+                        })
+                    })],
+                    dismiss_on_select: true,
+                    ..Default::default()
+                }
+            })
+            .collect();
+        let header =
+            self.model_menu_header("Provider models", "Selecting a model starts a new chat.");
+        self.show_model_selection_view(
+            ids,
+            SelectionViewParams {
+                items,
+                header,
+                is_searchable: true,
                 ..SelectionViewParams::picker()
             },
         );

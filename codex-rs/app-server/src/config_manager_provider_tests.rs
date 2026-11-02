@@ -305,18 +305,20 @@ name = "Gateway"
         .await?;
     let default_manager =
         ConfigManager::without_managed_config_for_tests(home.path().to_path_buf());
-    let error = default_manager
+    default_manager
         .check_thread_model_provider_for_input(&current)
-        .await
-        .unwrap_err();
-    assert_eq!(
-        error
-            .get_ref()
-            .and_then(|error| error.downcast_ref::<ModelProviderError>()),
-        Some(&ModelProviderError::ModelProviderMismatch {
-            model_provider: "gateway".into(),
-            current_model_provider: "openai".into(),
-        })
+        .await?;
+    // Removing the selected provider must prevent future input on the old thread.
+    std::fs::write(
+        home.path().join("config.toml"),
+        "model_provider = \"openai\"
+",
+    )?;
+    assert!(
+        default_manager
+            .check_thread_model_provider_for_input(&current)
+            .await
+            .is_err()
     );
     Ok(())
 }

@@ -440,6 +440,13 @@ impl ConfigManager {
             .load_latest_config(Some(current.cwd.to_path_buf()))
             .await?;
         if current.model_provider_id != configured.model_provider_id {
+            // Explicitly selected threads keep their own provider. Only admit input
+            // while its current definition still matches the configured provider.
+            if configured.model_providers.get(&current.model_provider_id)
+                == Some(&current.model_provider)
+            {
+                return Ok(());
+            }
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 ModelProviderError::ModelProviderMismatch {

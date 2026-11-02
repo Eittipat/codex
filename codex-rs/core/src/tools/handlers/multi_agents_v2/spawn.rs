@@ -131,6 +131,7 @@ async fn handle_spawn_agent(
             fork_mode: fork_mode.clone(),
             agent_type: args.agent_type.clone(),
             model: args.model,
+            provider: args.provider,
             reasoning_effort: args.reasoning_effort,
         },
     )
@@ -205,6 +206,7 @@ struct SpawnAgentArgs {
     task_name: String,
     agent_type: Option<String>,
     model: Option<String>,
+    provider: Option<String>,
     reasoning_effort: Option<ReasoningEffort>,
     fork_turns: Option<String>,
     fork_context: Option<bool>,

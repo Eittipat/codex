@@ -160,6 +160,7 @@ fn create_request(name: &str, fork_history: bool) -> ThreadCreateRequest {
         fork_mode: fork_history.then_some(SpawnAgentForkMode::FullHistory),
         agent_type: None,
         model: None,
+        provider: None,
         reasoning_effort: None,
     }
 }
