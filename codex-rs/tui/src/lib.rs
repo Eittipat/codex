@@ -185,6 +185,7 @@ mod markdown_stream;
 mod markdown_text_merge;
 mod mention_codec;
 mod model_catalog;
+mod provider_model_discovery;
 mod model_migration;
 mod motion;
 mod multi_agents;

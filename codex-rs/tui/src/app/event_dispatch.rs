@@ -219,6 +219,9 @@ impl App {
                     self.chat_widget.show_misalignment_policy_precaution();
                 }
             }
+            AppEvent::NewSessionWithModel { provider, model } => {
+                self.start_fresh_session_with_provider(tui, app_server, None, None, None, Some((provider, model))).await;
+            }
             AppEvent::ContinueProviderChat { thread_id } => {
                 // A queued shortcut must still refer to the locked chat on screen.
                 if self.chat_widget.thread_id() == Some(thread_id)
@@ -2362,6 +2365,19 @@ impl App {
             }
             AppEvent::PermissionProfilesLoaded { request_id, result } => {
                 self.chat_widget.on_permission_profiles_loaded(request_id, result);
+            }
+            AppEvent::FetchProviderModels => {
+                let config = self.chat_widget.config_ref().clone();
+                let catalog_provider = app_server.history_model_provider(&config).await.ok().flatten();
+                let openai_models = if catalog_provider.as_deref() == Some("openai") { self.model_catalog.try_list_models().unwrap_or_default() } else { Vec::new() };
+                let tx = self.app_event_tx.clone();
+                tokio::spawn(async move {
+                    let (models, errors) = crate::provider_model_discovery::discover(&config, openai_models, catalog_provider.as_deref()).await;
+                    tx.send(AppEvent::ProviderModelsLoaded { models, errors });
+                });
+            }
+            AppEvent::ProviderModelsLoaded { models, errors } => {
+                self.chat_widget.open_provider_models_popup(models, errors);
             }
             AppEvent::FetchModels { request_id } => {
                 if self.chat_widget.model_popup_request_is_current(request_id) {

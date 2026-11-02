@@ -41,6 +41,7 @@ pub(crate) struct SpawnConfigOptions<'a> {
     pub(crate) full_history_fork: bool,
     pub(crate) role_name: Option<&'a str>,
     pub(crate) model: Option<&'a str>,
+    pub(crate) provider: Option<&'a str>,
     pub(crate) reasoning_effort: Option<ReasoningEffort>,
 }
 
@@ -66,6 +67,7 @@ pub(crate) async fn prepare_agent_spawn_config(
         step_context,
         &mut config,
         options.model,
+        options.provider,
         options.reasoning_effort,
     )
     .await?;
@@ -207,17 +209,59 @@ async fn apply_requested_spawn_agent_model_overrides(
     step_context: &StepContext,
     config: &mut Config,
     requested_model: Option<&str>,
+    requested_provider: Option<&str>,
     requested_reasoning_effort: Option<ReasoningEffort>,
 ) -> Result<(), String> {
     let turn = step_context.turn.as_ref();
-    let requested_model = requested_model.or(turn.config.agent_default_subagent_model.as_deref());
+    let requested_model = if requested_provider.is_some() {
+        requested_model
+    } else {
+        requested_model.or(turn.config.agent_default_subagent_model.as_deref())
+    };
+    let mut provider_overridden = false;
+    if let Some(provider_id) = requested_provider {
+        let provider = config.model_providers.get(provider_id).cloned().ok_or_else(|| {
+            let available = config.model_providers.keys().map(String::as_str).collect::<Vec<_>>().join(", ");
+            format!("Unknown provider `{provider_id}` for spawn_agent. Available providers: {available}")
+        })?;
+        config.model_provider_id = provider_id.to_string();
+        config.model_provider = provider;
+        provider_overridden = true;
+    }
     let requested_reasoning_effort = requested_reasoning_effort
         .or_else(|| turn.config.agent_default_subagent_reasoning_effort.clone());
+    if provider_overridden && requested_model.is_none() {
+        return Err(format!(
+            "spawn_agent requires an explicit model when provider `{}` is selected",
+            config.model_provider_id
+        ));
+    }
     if requested_model.is_none() && requested_reasoning_effort.is_none() {
         return Ok(());
     }
 
     if let Some(requested_model) = requested_model {
+        if provider_overridden {
+            let model_info = session
+                .services
+                .models_manager
+                .get_model_info(requested_model, &config.to_models_manager_config())
+                .await;
+            config.model = Some(requested_model.to_string());
+            if let Some(reasoning_effort) = requested_reasoning_effort {
+                if !model_info.supported_reasoning_levels.is_empty() {
+                    validate_spawn_agent_reasoning_effort(
+                        requested_model,
+                        &model_info.supported_reasoning_levels,
+                        &reasoning_effort,
+                    )?;
+                }
+                config.model_reasoning_effort = Some(reasoning_effort);
+            } else {
+                config.model_reasoning_effort = model_info.default_reasoning_level.clone();
+            }
+            return Ok(());
+        }
         let available_models = session
             .services
             .models_manager

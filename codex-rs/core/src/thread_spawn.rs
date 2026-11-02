@@ -33,6 +33,7 @@ pub struct ThreadCreateRequest {
     pub fork_mode: Option<SpawnAgentForkMode>,
     pub agent_type: Option<String>,
     pub model: Option<String>,
+    pub provider: Option<String>,
     pub reasoning_effort: Option<ReasoningEffort>,
 }
 
@@ -44,6 +45,7 @@ pub(crate) struct ThreadSpawnRequest {
     pub fork_mode: Option<SpawnAgentForkMode>,
     pub agent_type: Option<String>,
     pub model: Option<String>,
+    pub provider: Option<String>,
     pub reasoning_effort: Option<ReasoningEffort>,
 }
 
@@ -65,6 +67,7 @@ impl ThreadSpawnRequest {
                 fork_mode: self.fork_mode,
                 agent_type: self.agent_type,
                 model: self.model,
+                provider: self.provider,
                 reasoning_effort: self.reasoning_effort,
             },
             self.message,
@@ -133,6 +136,7 @@ pub(crate) async fn prepare(
         fork_mode,
         agent_type,
         model,
+        provider,
         reasoning_effort,
     } = request;
     let role_name = agent_type
@@ -147,6 +151,7 @@ pub(crate) async fn prepare(
             full_history_fork: matches!(fork_mode, Some(SpawnAgentForkMode::FullHistory)),
             role_name,
             model: model.as_deref(),
+            provider: provider.as_deref(),
             reasoning_effort,
         },
     )

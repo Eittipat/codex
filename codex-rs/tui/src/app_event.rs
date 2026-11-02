@@ -554,6 +554,12 @@ pub(crate) enum AppEvent {
         name: Option<String>,
     },
 
+    /// Start a fresh chat with an explicitly selected provider and model.
+    NewSessionWithModel {
+        provider: String,
+        model: String,
+    },
+
     /// Continue a provider-locked conversation in a fresh chat using its saved history.
     ContinueProviderChat {
         thread_id: ThreadId,
@@ -1357,6 +1363,12 @@ pub(crate) enum AppEvent {
     PersistDaybreakSelection {
         thread_id: ThreadId,
         enabled: bool,
+    },
+
+    FetchProviderModels,
+    ProviderModelsLoaded {
+        models: Vec<crate::provider_model_discovery::ProviderModel>,
+        errors: Vec<String>,
     },
 
     /// Fetch the current catalog even when cached models produce no picker.

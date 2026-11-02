@@ -19,8 +19,7 @@ const SPAWN_AGENT_INHERITED_MODEL_GUIDANCE_V2: &str = "Spawned agents inherit yo
 const SPAWN_AGENT_MODEL_CATALOG_GUIDANCE: &str =
     "Pick model overrides from the latest <model_catalog> listing.";
 const SPAWN_AGENT_TYPE_OVERRIDE_DESCRIPTION_V1: &str = "Agent type override for the new agent. Omit to inherit the parent agent type with a full-history fork; otherwise, `default` is used.";
-const SPAWN_AGENT_MODEL_OVERRIDE_DESCRIPTION: &str =
-    "Model override for the new agent. Omit unless an explicit override is needed.";
+const SPAWN_AGENT_MODEL_OVERRIDE_DESCRIPTION: &str = "Model override for the new agent. When `provider` is set, use that provider's exact model ID (for OpenRouter, use its author/model slug).";
 const MAX_REASONING_EFFORT_CHARS_IN_SPAWN_AGENT_DESCRIPTION: usize = 64;
 
 #[derive(Debug, Clone)]
@@ -213,8 +212,7 @@ pub fn create_send_message_tool() -> ToolSpec {
             "message".to_string(),
             JsonSchema::string(Some(
                 "Message text to queue on the target agent.".to_string(),
-            ))
-            .with_encrypted(),
+            )),
         ),
     ]);
 
@@ -246,8 +244,7 @@ pub fn create_followup_task_tool() -> ToolSpec {
             "message".to_string(),
             JsonSchema::string(Some(
                 "Message text to send to the target agent.".to_string(),
-            ))
-            .with_encrypted(),
+            )),
         ),
     ]);
 
@@ -637,6 +634,10 @@ fn spawn_agent_common_properties_v1(agent_type_description: &str) -> BTreeMap<St
             )),
         ),
         (
+            "provider".to_string(),
+            JsonSchema::string(Some("Configured provider ID for the new agent, such as `openrouter`. Set `model` to a model ID supported by that provider.".to_string())),
+        ),
+        (
             "reasoning_effort".to_string(),
             JsonSchema::string(Some(
                 "Reasoning effort override for the new agent. Omit to inherit the parent effort."
@@ -652,8 +653,7 @@ fn spawn_agent_common_properties_v2(agent_type_description: &str) -> BTreeMap<St
             "message".to_string(),
             JsonSchema::string(Some(
                 "Initial plain-text task for the new agent.".to_string(),
-            ))
-            .with_encrypted(),
+            )),
         ),
         (
             "agent_type".to_string(),
@@ -674,6 +674,10 @@ fn spawn_agent_common_properties_v2(agent_type_description: &str) -> BTreeMap<St
             )),
         ),
         (
+            "provider".to_string(),
+            JsonSchema::string(Some("Configured provider ID for the new agent, such as `openrouter`. Set `model` to a model ID supported by that provider.".to_string())),
+        ),
+        (
             "reasoning_effort".to_string(),
             JsonSchema::string(Some(
                 "Reasoning effort override for the new agent. Omit to inherit the parent effort."
@@ -686,6 +690,7 @@ fn spawn_agent_common_properties_v2(agent_type_description: &str) -> BTreeMap<St
 fn hide_spawn_agent_metadata_options(properties: &mut BTreeMap<String, JsonSchema>) {
     properties.remove("agent_type");
     properties.remove("model");
+    properties.remove("provider");
     properties.remove("reasoning_effort");
 }
 
